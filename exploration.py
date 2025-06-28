@@ -203,55 +203,56 @@ def dgp(N, T, J, rho, beta0, beta, sigma_eps):
 
 N, T, J, rho, beta0, beta, sigma_eps = 100, 10, 3, 0.7, 1.0, np.array([0.5, -0.3, 0.2]), 1.0
 N, T, J, rho, beta0, beta, sigma_eps = 100, 10, 0, 0.7, 1.0, None, 1.0
-y1, x, f, eps, u = dgp(N, T, J, rho, beta0, beta, sigma_eps)
+def estimate_model(N, T, J, rho, beta0, beta, sigma_eps, t):
+    y1, x, f, eps, u = dgp(N, T, J, rho, beta0, beta, sigma_eps)
+
+    # Demeaned variables
+    y_dm = y1 - y1.mean(axis=1, keepdims=True)
+    if J > 0:
+        assert x is not None  # type assertion for linter
+        x_dm = x - x.mean(axis=1, keepdims=True)
+    else:
+        x_dm = None
+    eps_dm = eps - eps.mean(axis=1, keepdims=True)
+
+    # Lagged demeaned y
+    y_lag = np.zeros_like(y1)
+    y_lag[:, 1:] = y1[:, :-1]
+    y_lag_dm = y_lag - y_lag.mean(axis=1, keepdims=True)
 
 
+    y_dep = y_dm[:, 1:].ravel()                         
+    y_lag_flat = y_lag_dm[:, 1:].reshape(-1, 1)         
+    if J > 0:
+        assert x is not None and x_dm is not None  # type assertion for linter
+        x_flat = x_dm[:, 1:, :].reshape(-1, x.shape[2])     
+        # Combine regressors
+        X = np.hstack([y_lag_flat, x_flat]) 
+    else:
+        X = y_lag_flat
+    X = sm.add_constant(X)
 
-# Demeaned variables
-y_dm = y1 - y1.mean(axis=1, keepdims=True)
-if J > 0:
-    assert x is not None  # type assertion for linter
-    x_dm = x - x.mean(axis=1, keepdims=True)
-else:
-    x_dm = None
-eps_dm = eps - eps.mean(axis=1, keepdims=True)
+    
+    if t == None:
+        # Run regression that pools all time periods
+        model = sm.OLS(y_dep, X).fit()
+        print(model.summary())
+        print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho, 'beta1, beta2, beta3 (x1, x2, x3): ', beta)
+        # Here beta1 to beta3 are not biased, because they are not correlated with the fixed effects. 
 
-# Lagged demeaned y
-y_lag = np.zeros_like(y1)
-y_lag[:, 1:] = y1[:, :-1]
-y_lag_dm = y_lag - y_lag.mean(axis=1, keepdims=True)
-
-
-y_dep = y_dm[:, 1:].ravel()                         
-y_lag_flat = y_lag_dm[:, 1:].reshape(-1, 1)         
-if J > 0:
-    assert x is not None and x_dm is not None  # type assertion for linter
-    x_flat = x_dm[:, 1:, :].reshape(-1, x.shape[2])     
-    # Combine regressors
-    X = np.hstack([y_lag_flat, x_flat]) 
-else:
-    X = y_lag_flat
-X = sm.add_constant(X)
-
-# Run regression that pools all time periods
-model = sm.OLS(y_dep, X).fit()
-print(model.summary())
-print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho, 'beta1, beta2, beta3 (x1, x2, x3): ', beta)
-# Here beta1 to beta3 are not biased, because they are not correlated with the fixed effects. 
-
-# Run regression for only one time period t <= T
-t = 4
-if J > 0:
-    assert x_dm is not None  # type assertion for linter
-    X = np.hstack([y_lag_dm[:, t].reshape(-1, 1), x_dm[:, t, :]])
-else:
-    X = y_lag_dm[:, t].reshape(-1, 1)
-X = sm.add_constant(X)
-model = sm.OLS(y_dm[:, t], X).fit()
-print(model.summary())
-if J > 0:
-    print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho, 'beta1, beta2, beta3 (x1, x2, x3): ', beta)
-else:
-    print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho)
+    # Run regression for only one time period t <= T
+    else:
+        if J > 0:
+            assert x_dm is not None  # type assertion for linter
+            X = np.hstack([y_lag_dm[:, t].reshape(-1, 1), x_dm[:, t, :]])
+        else:
+            X = y_lag_dm[:, t].reshape(-1, 1)
+        X = sm.add_constant(X)
+        model = sm.OLS(y_dm[:, t], X).fit()
+        print(model.summary())
+        if J > 0:
+            print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho, 'beta1, beta2, beta3 (x1, x2, x3): ', beta)
+        else:
+            print('DGP parameters: beta0 (const):', beta0, 'rho (x1): ', rho)
 
 
