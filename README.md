@@ -35,7 +35,7 @@ python main.py
 - Nickell, S. (1981). *Biases in Dynamic Models with Fixed Effects*. **Econometrica**, 49(6), 1417–1426.  
   [https://www.jstor.org/stable/1911408](https://www.jstor.org/stable/1911408)
 
-  ## 👨‍💻 Author
+## 👨‍💻 Author
 
 **Maximilian Grotz**  
 Future PhD Student in Economics
